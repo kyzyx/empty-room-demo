@@ -18,15 +18,16 @@ public class RoomVisualizer : ModuleRules
 	{
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "RHI", "RenderCore", "ShaderCore" });
 
+		string EnginePath = "C:/Users/edzhang/UnrealEngine/";
         string PlatformString = (Target.Platform == UnrealTargetPlatform.Win64) ? "x64" : "Win32";
-        PublicIncludePaths.Add("D:/Programs/Epic Games/4.7/Engine/Source/ThirdParty/openexr/Deploy/include");
-        string OpenExrLibrariesPath = "D:/Programs/Epic Games/4.7/Engine/Source/ThirdParty/openexr/Deploy/lib/VS2013";
+        PublicIncludePaths.Add(Path.Combine(EnginePath, "Engine/Source/ThirdParty/openexr/Deploy/include"));
+        string OpenExrLibrariesPath = Path.Combine(EnginePath,"Engine/Source/ThirdParty/openexr/Deploy/lib/VS2013");
         string[] libnames = { "Half", "Iex", "IlmImf", "IlmThread", "Imath" };
         foreach (string s in libnames) {
             PublicAdditionalLibraries.Add(Path.Combine(OpenExrLibrariesPath, PlatformString, "StaticRelease", s + ".lib"));
         }
 
-        string ZlibLibrariesPath = "D:/Programs/Epic Games/4.7/Engine/Source/ThirdParty/zlib/zlib-1.2.5/Lib";
+        string ZlibLibrariesPath = Path.Combine(EnginePath,"Engine/Source/ThirdParty/zlib/zlib-1.2.5/Lib");
         if (Target.Platform == UnrealTargetPlatform.Win64)
         {
             PublicAdditionalLibraries.Add(Path.Combine(ZlibLibrariesPath, "Win64", "zlib_64.lib"));
