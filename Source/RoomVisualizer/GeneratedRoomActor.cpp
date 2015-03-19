@@ -81,15 +81,15 @@ void generateRoomModel(RoomModel* roommodel) {
 	rwo.trimWidth = 0.1;
 
 	Wall wall;
-	int dim = 500;
+	int dim = 512;
 	float* texture = new float[4 * dim * dim];
 	for (int i = 0; i < dim*dim; ++i) {
 		bool black = false;
 		if (i / dim < dim / 2) black = !black;
 		if (i % dim < dim / 2) black = !black;
-		texture[i * 4 + 0] = black ? 0 : 256;
-		texture[i * 4 + 1] = black ? 0 : 256;
-		texture[i * 4 + 2] = black ? 0 : 256;
+		texture[i * 4 + 0] = black ? 0 : 0.7;
+		texture[i * 4 + 1] = black ? 0 : 0.7;
+		texture[i * 4 + 2] = black ? 0 : 0.7;
 		texture[i * 4 + 3] = 1;
 
 	}
@@ -187,7 +187,7 @@ AGeneratedRoomActor::AGeneratedRoomActor(const FObjectInitializer& ObjectInitial
 
 		// Count materials
 		std::map<Material*, UMaterialInstanceDynamic*> materials;
-		
+
 		materials[&(roommodel->baseboardMaterial)] = NULL;
 		materials[&(roommodel->wallMaterial)] = NULL;
 		materials[&(roommodel->ceilingMaterial)] = NULL;
