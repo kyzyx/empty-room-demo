@@ -53,13 +53,14 @@ bool readExrImage(const string& filename, float*& image, int& width, int& height
 	pixels.resizeErase(height, width);
 	f.setFrameBuffer(&pixels[0][0] - dw.min.x - dw.min.y * width, 1, width);
 	f.readPixels(dw.min.y, dw.max.y);
-	image = new float[3 * width*height];
+	image = new float[4 * width*height];
 	for (int i = 0; i < height; ++i) {
 		for (int j = 0; j < width; ++j) {
 			int idx = width*(height - i - 1) + j;
-			image[3 * idx] = pixels[i][j].r;
-			image[3 * idx + 1] = pixels[i][j].g;
-			image[3 * idx + 2] = pixels[i][j].b;
+			image[4 * idx] = pixels[i][j].r;
+			image[4 * idx + 1] = pixels[i][j].g;
+			image[4 * idx + 2] = pixels[i][j].b;
+			image[4 * idx + 3] = pixels[i][j].a;
 		}
 	}
 	return true;

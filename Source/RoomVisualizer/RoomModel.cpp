@@ -203,6 +203,8 @@ bool save(RoomModel& r, const string& filename) {
 	serializeMaterial(r.floorMaterial, writer);
 	writer.String("ceilingMaterial");
 	serializeMaterial(r.ceilingMaterial, writer);
+	writer.String("baseboardMaterial");
+	serializeMaterial(r.baseboardMaterial, writer);
 	writer.String("lights");
 	writer.StartArray();
 	for (int i = 0; i < r.lights.size(); ++i) {
