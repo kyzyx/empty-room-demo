@@ -11,14 +11,14 @@ UCLASS(Blueprintable)
 class ROOMVISUALIZER_API AGeneratedRoomActor : public AActor
 {
 	GENERATED_BODY()
-	
+
 public:
 	// Sets default values for this actor's properties
 	AGeneratedRoomActor(const FObjectInitializer& ObjectInitializer);
 
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
-	
+
 	// Called every frame
 	virtual void Tick( float DeltaSeconds ) override;
 
@@ -38,6 +38,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "RoomGeometry")
 	void SaveRoomToFile(FString filename);
 
+	UFUNCTION(BlueprintCallable, Category = "RoomGeometry")
+	static void setLoadFile(FString filename);
+
+	static FString defaultloadfile;
 	static const double unitscale;
 	static const double cubescale;
 

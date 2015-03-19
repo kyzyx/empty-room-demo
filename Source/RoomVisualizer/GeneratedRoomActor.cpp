@@ -9,6 +9,7 @@
 
 #include <map>
 
+FString AGeneratedRoomActor::defaultloadfile = "";
 const double AGeneratedRoomActor::unitscale = 100;
 const double AGeneratedRoomActor::cubescale = 10;
 
@@ -68,6 +69,97 @@ void UpdateTextureRegions(UTexture2D* Texture, int32 MipIndex, uint32 NumRegions
 	}
 }
 
+void generateRoomModel(RoomModel* roommodel) {
+	roommodel->baseboardDepth = 0.05;
+	roommodel->baseboardHeight = 0.2;
+	RectangleWallObject rwo;
+	rwo.height = 0.8;
+	rwo.width = 0.8;
+	rwo.horizontalposition = 1;
+	rwo.verticalposition = 1;
+	rwo.trimDepth = 0.05;
+	rwo.trimWidth = 0.1;
+
+	Wall wall;
+	int dim = 500;
+	float* texture = new float[4 * dim * dim];
+	for (int i = 0; i < dim*dim; ++i) {
+		bool black = false;
+		if (i / dim < dim / 2) black = !black;
+		if (i % dim < dim / 2) black = !black;
+		texture[i * 4 + 0] = black ? 0 : 256;
+		texture[i * 4 + 1] = black ? 0 : 256;
+		texture[i * 4 + 2] = black ? 0 : 256;
+		texture[i * 4 + 3] = 1;
+
+	}
+	Texture* tmp = new Texture();
+	tmp->height = dim;
+	tmp->width = dim;
+	tmp->scale = 0.001;
+	tmp->texture = texture;
+	/*
+	wall.length = 6;
+	wall.normal = -1;
+	roommodel->walls.push_back(wall);
+	wall.length = 6;
+	wall.normal = -1;
+	roommodel->walls.push_back(wall);
+	wall.length = 3;
+	wall.normal = 1;
+	roommodel->walls.push_back(wall);
+	wall.length = 2;
+	wall.normal = 1;
+	roommodel->walls.push_back(wall);
+	wall.length = 3;
+	wall.normal = 1;
+	roommodel->walls.push_back(wall);
+	wall.length = 4;
+	wall.normal = 1;
+	roommodel->walls.push_back(wall);
+	*/
+	wall.length = 6;
+	wall.normal = -1;
+	roommodel->walls.push_back(wall);
+	wall.length = 6;
+	wall.normal = -1;
+	roommodel->walls.push_back(wall);
+	wall.length = 6;
+	wall.normal = 1;
+	roommodel->walls.push_back(wall);
+	wall.length = 2;
+	wall.normal = 1;
+	roommodel->walls.push_back(wall);
+	wall.length = 2;
+	wall.normal = -1;
+	roommodel->walls.push_back(wall);
+	wall.length = 2;
+	wall.normal = 1;
+	roommodel->walls.push_back(wall);
+	wall.length = 2;
+	wall.normal = 1;
+	roommodel->walls.push_back(wall);
+	wall.length = 2;
+	wall.normal = 1;
+	roommodel->walls.push_back(wall);
+	roommodel->height = 2.5;
+
+	roommodel->wallMaterial = Material(0.7, 0.7, 0.5);
+	roommodel->ceilingMaterial = roommodel->wallMaterial;
+	roommodel->floorMaterial = Material(0.2, 0.2, 0.5);
+	roommodel->floorMaterial.texture = tmp;
+	roommodel->baseboardMaterial = Material(0.5, 0.25, 0.1);
+
+	//rwo.recessed = 0;
+	rwo.recessed = 0.2;
+	rwo.frameMaterial = roommodel->baseboardMaterial;
+	rwo.material = roommodel->wallMaterial;
+	roommodel->walls[3].windows.push_back(rwo);
+	roommodel->walls[2].windows.push_back(rwo);
+	roommodel->walls[1].windows.push_back(rwo);
+	roommodel->walls[0].windows.push_back(rwo);
+}
+
 // Sets default values
 AGeneratedRoomActor::AGeneratedRoomActor(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -82,94 +174,12 @@ AGeneratedRoomActor::AGeneratedRoomActor(const FObjectInitializer& ObjectInitial
 	RootComponent = ObjectInitializer.CreateDefaultSubobject<USceneComponent>(this, "rootroomcomponent");
 	if (cubemesh.Succeeded()) {
 		roommodel = new RoomModel();
-		roommodel->baseboardDepth = 0.05;
-		roommodel->baseboardHeight = 0.2;
-		RectangleWallObject rwo;
-		rwo.height = 0.8;
-		rwo.width = 0.8;
-		rwo.horizontalposition = 1;
-		rwo.verticalposition = 1;
-		rwo.trimDepth = 0.05;
-		rwo.trimWidth = 0.1;
-
-		Wall wall;
-		int dim = 500;
-		float* texture = new float[4 * dim * dim];
-		for (int i = 0; i < dim*dim; ++i) {
-			bool black = false;
-			if (i / dim < dim/2) black = !black;
-			if (i % dim < dim/2) black = !black;
-			texture[i * 4 + 0] = black ? 0 : 256;
-			texture[i * 4 + 1] = black ? 0 : 256;
-			texture[i * 4 + 2] = black ? 0 : 256;
-			texture[i * 4 + 3] = 1;
-
+		if (defaultloadfile == "") {
+			generateRoomModel(roommodel);
 		}
-		Texture* tmp = new Texture();
-		tmp->height = dim;
-		tmp->width = dim;
-		tmp->scale = 0.001;
-		tmp->texture = texture;
-		/*
-		wall.length = 6;
-		wall.normal = -1;
-		roommodel->walls.push_back(wall);
-		wall.length = 6;
-		wall.normal = -1;
-		roommodel->walls.push_back(wall);
-		wall.length = 3;
-		wall.normal = 1;
-		roommodel->walls.push_back(wall);
-		wall.length = 2;
-		wall.normal = 1;
-		roommodel->walls.push_back(wall);
-		wall.length = 3;
-		wall.normal = 1;
-		roommodel->walls.push_back(wall);
-		wall.length = 4;
-		wall.normal = 1;
-		roommodel->walls.push_back(wall);
-		*/
-		wall.length = 6;
-		wall.normal = -1;
-		roommodel->walls.push_back(wall);
-		wall.length = 6;
-		wall.normal = -1;
-		roommodel->walls.push_back(wall);
-		wall.length = 6;
-		wall.normal = 1;
-		roommodel->walls.push_back(wall);
-		wall.length = 2;
-		wall.normal = 1;
-		roommodel->walls.push_back(wall);
-		wall.length = 2;
-		wall.normal = -1;
-		roommodel->walls.push_back(wall);
-		wall.length = 2;
-		wall.normal = 1;
-		roommodel->walls.push_back(wall);
-		wall.length = 2;
-		wall.normal = 1;
-		roommodel->walls.push_back(wall);
-		wall.length = 2;
-		wall.normal = 1;
-		roommodel->walls.push_back(wall);
-		roommodel->height = 2.5;
-
-		roommodel->wallMaterial = Material(0.7, 0.7, 0.5);
-		roommodel->ceilingMaterial = roommodel->wallMaterial;
-		roommodel->floorMaterial = Material(0.2, 0.2, 0.5);
-		roommodel->floorMaterial.texture = tmp;
-		roommodel->baseboardMaterial = Material(0.5, 0.25, 0.1);
-
-		//rwo.recessed = 0;
-		rwo.recessed = 0.2;
-		rwo.frameMaterial = roommodel->baseboardMaterial;
-		rwo.material = roommodel->wallMaterial;
-		roommodel->walls[3].windows.push_back(rwo);
-		roommodel->walls[2].windows.push_back(rwo);
-		roommodel->walls[1].windows.push_back(rwo);
-		roommodel->walls[0].windows.push_back(rwo);
+		else {
+			load(*roommodel, TCHAR_TO_UTF8(*defaultloadfile));
+		}
 		GeometryGenerator gg(roommodel);
 		gg.generate();
 		std::vector<Rect> rectangles;
@@ -307,6 +317,10 @@ void AGeneratedRoomActor::Update() {
 		t.SetLocation(p);
 		component->SetWorldTransform(t);
 	}
+}
+
+void AGeneratedRoomActor::setLoadFile(FString filename) {
+	defaultloadfile = filename;
 }
 
 void AGeneratedRoomActor::SaveRoomToFile(FString filename) {
