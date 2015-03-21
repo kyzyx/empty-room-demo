@@ -158,6 +158,11 @@ void generateRoomModel(RoomModel* roommodel) {
 	roommodel->walls[2].windows.push_back(rwo);
 	roommodel->walls[1].windows.push_back(rwo);
 	roommodel->walls[0].windows.push_back(rwo);
+
+	Light l(FVector(-300,300,250),Color(1e4,1e4,1e4));
+	l.cutoff = 65;
+	l.direction = FVector(0, 0, -1);
+	roommodel->lights.push_back(l);
 }
 
 // Sets default values
@@ -184,6 +189,54 @@ AGeneratedRoomActor::AGeneratedRoomActor(const FObjectInitializer& ObjectInitial
 		gg.generate();
 		std::vector<Rect> rectangles;
 		gg.getRectangles(rectangles);
+
+		for (int i = 0; i < roommodel->lights.size(); ++i) {
+			if (roommodel->lights[i].getType() == "point" || roommodel->lights[i].getType() == "line") {
+				USpotLightComponent* component = ObjectInitializer.CreateDefaultSubobject<USpotLightComponent>(this, FName(*(FString::Printf(TEXT("spotlight%d"), i))));
+				component->bAutoRegister = true;
+				component->AttachTo(GetRootComponent());
+				component->RegisterComponent();
+				FVector a, b, c;
+				a = roommodel->lights[i].direction;
+				FTransform t;
+
+				if (roommodel->lights[i].getType() == "line") {
+					LineLight* l = (LineLight*)&roommodel->lights[i];
+					FVector v;
+					float d;
+					(l->position - l->endpoint).ToDirectionAndLength(v, d);
+					t.SetLocation((l->position + l->endpoint) / 2);
+					a -= FVector::DotProduct(a, v)*v;
+					component->SourceLength = d;
+				}
+				else {
+					t.SetLocation(roommodel->lights[i].position);
+				}
+				if (!a.IsNearlyZero()) {
+					a.Normalize();
+					b = FVector(1, 0, 0);
+					double r = 1 + FVector::DotProduct(a, b);
+					if (r < 1e-8) {
+						r = 0;
+						c = abs(c.X) > abs(c.Z) ? FVector(-c.Y, c.X, 0) : FVector(0, -c.Z, c.Y);
+					}
+					else {
+						c = FVector::CrossProduct(a, b);
+					}
+					FQuat q(r, c.X, c.Y, c.Z);
+					q.Normalize();
+					t.SetRotation(q);
+				}
+
+				component->SetWorldTransform(t);
+				double m = std::max(roommodel->lights[i].intensity.r, std::max(roommodel->lights[i].intensity.g, roommodel->lights[i].intensity.b));
+				component->SetLightColor(FLinearColor(roommodel->lights[i].intensity.r/m, roommodel->lights[i].intensity.g/m, roommodel->lights[i].intensity.b/m));
+				component->SetIntensity(m);
+				component->SetLightFalloffExponent(roommodel->lights[i].dropoff);
+				component->SetOuterConeAngle(roommodel->lights[i].cutoff);
+				component->SetVisibility(true);
+			}
+		}
 
 		// Count materials
 		std::map<Material*, UMaterialInstanceDynamic*> materials;

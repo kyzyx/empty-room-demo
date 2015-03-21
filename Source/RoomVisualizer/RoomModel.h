@@ -89,7 +89,39 @@ public:
 // -------------------
 class Light {
 public:
+	Light() {
+		position = FVector(0, 0, 0);
+		direction = FVector(0, 0, 0);
+		dropoff = 0;
+		cutoff = 360;
+	}
+	Light(FVector pos, Color i) {
+		position = pos;
+		direction = FVector(0, 0, 0);
+		intensity = i;
+		dropoff = 0;
+		cutoff = 360;
+	}
 	Color intensity;
+	FVector position;
+	FVector direction;
+	double dropoff;
+	double cutoff;
+
+	virtual std::string getType() const { return "point";  }
+};
+
+class LineLight : public Light {
+public:
+	FVector endpoint;
+	virtual std::string getType() const { return "line";  }
+};
+class RoomWindow : public Light {
+public:
+	RectangleWallObject* rwo;
+	Texture* texture;
+	Color directionalintensity;
+	virtual std::string getType() const { return "window"; }
 };
 /*
 class PointLight : public Light {
