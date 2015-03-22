@@ -51,15 +51,12 @@ public:
 	double length;
 	int normal;    // Normal towards positive or negative axis
 	std::vector<RectangleWallObject> windows;
-	/*double start;  // Non-fixed coordinate of start and end of wall
-	double end;
-	double coord;  // Fixed coordinate of wall (e.g. x coordinate if X-aligned)
-	int direction; // X-aligned or Z-aligned*/
 };
 class RectangleWallObject {
 public:
 	// Axis aligned rectangular architectural features on walls,
 	// most importantly doors and windows.
+	Wall* wall;
 
 	// Position
 	double width;
@@ -79,7 +76,6 @@ public:
 	* - Detail geometry, i.e. bump map for doors
 	* - Nested RWO, e.g. door with a window inside
 	*/
-
 	Material frameMaterial;
 	Material material;
 };
@@ -123,35 +119,6 @@ public:
 	Color directionalintensity;
 	virtual std::string getType() const { return "window"; }
 };
-/*
-class PointLight : public Light {
-// Usually a single-bulb light. Can include directional distributions
-Eigen::Vector3f position;
-std::vector<double> sph;
-// Or some simpler representation of directional distribution e.g. spotlight
-// Vector3f direction;
-// double dropoffrate;
-// double cutoff;
-};
-class LineLight : public Light {
-// Usually long fluorescent bulbs
-Eigen::Vector3f start;
-Eigen::Vector3f end;
-// Could force them to be axis aligned too?
-
-std::vector<double> cph;
-// Or some simpler representation of a 2d directional distribution
-};
-class AreaLight : public Light {
-// Any generic light source, assumed to be diffuse. May not be necessary?
-std::vector<Eigen::Vector3f> vertices;
-};
-class RoomWindow : public Light {
-RectangleWallObject* rwo;
-Texture* texture;   // Could even have multiple, e.g. depth map/parallax
-Eigen::Vector3f direction; // Strong sunlight makes light directional
-Color directionalIntensity;
-};*/
 
 // -----------------
 // Master room model
@@ -181,7 +148,7 @@ public:
 	Material baseboardMaterial;
 	// -------------------------------------------
 	// Lighting
-	std::vector<Light> lights;
+	std::vector<Light*> lights;
 	RoomModel(double l, double w, double h) {
 		Wall wall;
 		wall.length = l;

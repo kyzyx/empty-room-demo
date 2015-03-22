@@ -154,14 +154,22 @@ void generateRoomModel(RoomModel* roommodel) {
 	rwo.recessed = 0.2;
 	rwo.frameMaterial = roommodel->baseboardMaterial;
 	rwo.material = roommodel->wallMaterial;
+	rwo.wall = &(roommodel->walls[3]);
 	roommodel->walls[3].windows.push_back(rwo);
+	rwo.wall = &(roommodel->walls[2]);
 	roommodel->walls[2].windows.push_back(rwo);
+	rwo.wall = &(roommodel->walls[1]);
 	roommodel->walls[1].windows.push_back(rwo);
+	rwo.wall = &(roommodel->walls[0]);
 	roommodel->walls[0].windows.push_back(rwo);
 
-	Light l(FVector(-300,300,250),Color(1e4,1e4,1e4));
-	l.cutoff = 65;
-	l.direction = FVector(0, 0, -1);
+	RoomWindow* rw = new RoomWindow();
+	rw->rwo = &(roommodel->walls[0].windows.back());
+	rw->intensity = Color(500,500,500);
+	roommodel->lights.push_back(rw);
+	Light* l = new Light(FVector(-300,300,250),Color(1e4,1e4,1e4));
+	l->cutoff = 65;
+	l->direction = FVector(0, 0, -1);
 	roommodel->lights.push_back(l);
 }
 
@@ -176,6 +184,7 @@ AGeneratedRoomActor::AGeneratedRoomActor(const FObjectInitializer& ObjectInitial
 	static ConstructorHelpers::FObjectFinder<UMaterial> basediffusematerial(TEXT("/Game/FirstPerson/Meshes/DiffuseMaterialBase"));
 	//static ConstructorHelpers::FObjectFinder<UMaterial> basetexturedmaterial(TEXT("/Game/FirstPerson/Meshes/TexturedMaterialMirrorBase"));
 	static ConstructorHelpers::FObjectFinder<UMaterial> basetexturedmaterial(TEXT("/Game/FirstPerson/Meshes/TexturedMaterialWrapBase"));
+	static ConstructorHelpers::FObjectFinder<UMaterial> basewindowmaterial(TEXT("/Game/FirstPerson/Meshes/WindowMaterial"));
 	RootComponent = ObjectInitializer.CreateDefaultSubobject<USceneComponent>(this, "rootroomcomponent");
 	if (cubemesh.Succeeded()) {
 		roommodel = new RoomModel();
@@ -190,56 +199,9 @@ AGeneratedRoomActor::AGeneratedRoomActor(const FObjectInitializer& ObjectInitial
 		std::vector<Rect> rectangles;
 		gg.getRectangles(rectangles);
 
-		for (int i = 0; i < roommodel->lights.size(); ++i) {
-			if (roommodel->lights[i].getType() == "point" || roommodel->lights[i].getType() == "line") {
-				USpotLightComponent* component = ObjectInitializer.CreateDefaultSubobject<USpotLightComponent>(this, FName(*(FString::Printf(TEXT("spotlight%d"), i))));
-				component->bAutoRegister = true;
-				component->AttachTo(GetRootComponent());
-				component->RegisterComponent();
-				FVector a, b, c;
-				a = roommodel->lights[i].direction;
-				FTransform t;
-
-				if (roommodel->lights[i].getType() == "line") {
-					LineLight* l = (LineLight*)&roommodel->lights[i];
-					FVector v;
-					float d;
-					(l->position - l->endpoint).ToDirectionAndLength(v, d);
-					t.SetLocation((l->position + l->endpoint) / 2);
-					a -= FVector::DotProduct(a, v)*v;
-					component->SourceLength = d;
-				}
-				else {
-					t.SetLocation(roommodel->lights[i].position);
-				}
-				if (!a.IsNearlyZero()) {
-					a.Normalize();
-					b = FVector(1, 0, 0);
-					double r = 1 + FVector::DotProduct(a, b);
-					if (r < 1e-8) {
-						r = 0;
-						c = abs(c.X) > abs(c.Z) ? FVector(-c.Y, c.X, 0) : FVector(0, -c.Z, c.Y);
-					}
-					else {
-						c = FVector::CrossProduct(a, b);
-					}
-					FQuat q(r, c.X, c.Y, c.Z);
-					q.Normalize();
-					t.SetRotation(q);
-				}
-
-				component->SetWorldTransform(t);
-				double m = std::max(roommodel->lights[i].intensity.r, std::max(roommodel->lights[i].intensity.g, roommodel->lights[i].intensity.b));
-				component->SetLightColor(FLinearColor(roommodel->lights[i].intensity.r/m, roommodel->lights[i].intensity.g/m, roommodel->lights[i].intensity.b/m));
-				component->SetIntensity(m);
-				component->SetLightFalloffExponent(roommodel->lights[i].dropoff);
-				component->SetOuterConeAngle(roommodel->lights[i].cutoff);
-				component->SetVisibility(true);
-			}
-		}
-
 		// Count materials
 		std::map<Material*, UMaterialInstanceDynamic*> materials;
+		UMaterialInstanceDynamic* tmp = (UMaterialInstanceDynamic*)1;
 
 		materials[&(roommodel->baseboardMaterial)] = NULL;
 		materials[&(roommodel->wallMaterial)] = NULL;
@@ -248,7 +210,7 @@ AGeneratedRoomActor::AGeneratedRoomActor(const FObjectInitializer& ObjectInitial
 		for (int i = 0; i < roommodel->walls.size(); ++i) {
 			for (int j = 0; j < roommodel->walls[i].windows.size(); ++j) {
 				materials[&(roommodel->walls[i].windows[j].frameMaterial)] = NULL;
-				materials[&(roommodel->walls[i].windows[j].material)] = NULL;
+				materials[&(roommodel->walls[i].windows[j].material)] = tmp;
 			}
 		}
 
@@ -256,8 +218,21 @@ AGeneratedRoomActor::AGeneratedRoomActor(const FObjectInitializer& ObjectInitial
 			for (auto it = materials.begin(); it != materials.end(); ++it) {
 				UMaterialInstanceDynamic* newmat;
 				Material* m = it->first;
+				if (it->second != NULL) {
+					newmat = UMaterialInstanceDynamic::Create(basewindowmaterial.Object, this);
+					// Set sun direction appropriately
+					// newmat->SetVectorParameterValue(TEXT("BaseColor"), FLinearColor(m->diffuse.r, m->diffuse.g, m->diffuse.b));
+				}
+				else {
+					if (m->texture != NULL) {
+						newmat = UMaterialInstanceDynamic::Create(basetexturedmaterial.Object, this);
+					}
+					else {
+						newmat = UMaterialInstanceDynamic::Create(basediffusematerial.Object, this);
+						newmat->SetVectorParameterValue(TEXT("BaseColor"), FLinearColor(m->diffuse.r, m->diffuse.g, m->diffuse.b));
+					}
+				}
 				if (m->texture != NULL) {
-					newmat = UMaterialInstanceDynamic::Create(basetexturedmaterial.Object, this);
 					int w = m->texture->width;
 					int h = m->texture->height;
 					UTexture2D* newtex = UTexture2D::CreateTransient(w, h, PF_A32B32G32R32F);
@@ -269,11 +244,86 @@ AGeneratedRoomActor::AGeneratedRoomActor(const FObjectInitializer& ObjectInitial
 					UpdateTextureRegions(newtex, 0, 1, region, w * 4 * sizeof(float), 4 * sizeof(float), (uint8*)m->texture->texture, false);
 					newmat->SetTextureParameterValue("TextureImage", newtex);
 				}
-				else {
-					newmat = UMaterialInstanceDynamic::Create(basediffusematerial.Object, this);
-					newmat->SetVectorParameterValue(TEXT("BaseColor"), FLinearColor(m->diffuse.r, m->diffuse.g, m->diffuse.b));
-				}
 				it->second = newmat;
+			}
+
+			for (int i = 0; i < roommodel->lights.size(); ++i) {
+				Light* light = roommodel->lights[i];
+				if (light->getType() == "point" || light->getType() == "line") {
+					USpotLightComponent* component = ObjectInitializer.CreateDefaultSubobject<USpotLightComponent>(this, FName(*(FString::Printf(TEXT("spotlight%d"), i))));
+					component->bAutoRegister = true;
+					component->AttachTo(GetRootComponent());
+					component->RegisterComponent();
+					FVector a, b, c;
+
+					a = light->direction;
+					FTransform t;
+
+					if (light->getType() == "line") {
+						LineLight* l = (LineLight*)light;
+						FVector v;
+						float d;
+						(l->position - l->endpoint).ToDirectionAndLength(v, d);
+						t.SetLocation((l->position + l->endpoint) / 2);
+						a -= FVector::DotProduct(a, v)*v;
+						component->SourceLength = d;
+					}
+					else {
+						t.SetLocation(light->position);
+					}
+					if (!a.IsNearlyZero()) {
+						a.Normalize();
+						b = FVector(1, 0, 0);
+						double r = 1 + FVector::DotProduct(a, b);
+						if (r < 1e-8) {
+							r = 0;
+							c = abs(c.X) > abs(c.Z) ? FVector(-c.Y, c.X, 0) : FVector(0, -c.Z, c.Y);
+						}
+						else {
+							c = FVector::CrossProduct(a, b);
+						}
+						FQuat q(r, c.X, c.Y, c.Z);
+						q.Normalize();
+						t.SetRotation(q);
+					}
+
+					component->SetWorldTransform(t);
+					double m = std::max(light->intensity.r, std::max(light->intensity.g, light->intensity.b));
+					component->SetLightColor(FLinearColor(light->intensity.r / m, light->intensity.g / m, light->intensity.b / m));
+					component->SetIntensity(m);
+					component->SetLightFalloffExponent(light->dropoff);
+					component->SetOuterConeAngle(light->cutoff);
+					component->SetVisibility(true);
+				}
+				else if (light->getType() == "window") {
+					RoomWindow* l = (RoomWindow*)light;
+					UStaticMeshComponent* component = ObjectInitializer.CreateDefaultSubobject<UStaticMeshComponent>(this, FName(*(FString::Printf(TEXT("window%d"), i))));
+					component->bAutoRegister = true;
+					component->SetStaticMesh(cubemesh.Object);
+					component->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+					component->AttachTo(GetRootComponent());
+					component->RegisterComponent();
+					Rect r = gg.getRectangleForWindow(l->rwo);
+					FTransform t;
+					FVector p;
+					FVector d(0, 0, 0);
+					for (int j = 0; j < 3; ++j) {
+						p[j] = r.p[j] * unitscale;
+					}
+					d[r.axisIndices().first] = (r.w)*unitscale;
+					d[r.axisIndices().second] = (r.h)*unitscale;
+					p = p + 0.5 * d;
+					d[r.axis] = r.depth*unitscale;
+					p[r.axis] -= r.normal*0.5*d[r.axis];
+					d /= cubescale;
+					t.SetScale3D(d);
+					t.SetLocation(p);
+					component->SetWorldTransform(t);
+					component->SetVisibility(true);
+					// TODO: Set sun direction, intensity
+					materials[&(l->rwo->material)]->SetVectorParameterValue(TEXT("DiffuseComponent"), FLinearColor(l->intensity.r, l->intensity.g, l->intensity.b));
+					component->SetMaterial(0, materials[&(l->rwo->material)]);
+				}
 			}
 
 

@@ -55,7 +55,7 @@ void GeometryGenerator::generate() {
 			windowRects.push_back(wRect);
 			wRect.material = &(rwo.material);
 			wRect.p[wall.axis] -= wall.normal*rwo.recessed;
-			otherRectangles.push_back(wRect);
+			windowRectangles[&(model->walls[i].windows[j])] = wRect;
 			
 			// Add trim geometry for windows
 			Rect trect = wRect;
@@ -142,11 +142,12 @@ void GeometryGenerator::generate() {
         px = cx;
         py = cy;
     }
-    Rect floorRect(minx, miny, 0, maxx, maxy, 0);
+	double delta = 0.1;
+    Rect floorRect(minx-delta, miny-delta, 0, maxx+delta, maxy+delta, 0);
     floorRect.material = &(model->floorMaterial);
     floorRect.normal = 1;
     otherRectangles.push_back(floorRect);
-    Rect ceilRect(minx, miny, h, maxx, maxy, h);
+    Rect ceilRect(minx-delta, miny-delta, h, maxx+delta, maxy+delta, h);
     ceilRect.material = &(model->ceilingMaterial);
     ceilRect.normal = -1;
     otherRectangles.push_back(ceilRect);
@@ -162,4 +163,9 @@ void GeometryGenerator::getTriangleVertices(vector<double>& triangles) {
 	vector<Rect> rectangles;
 	getRectangles(rectangles);
 	rectanglesToTriangles(rectangles, triangles);
+}
+
+
+Rect GeometryGenerator::getRectangleForWindow(RectangleWallObject* rwo) {
+	return windowRectangles[rwo];
 }

@@ -77,6 +77,7 @@ bool parseWall(const Value& v, Wall& wall) {
 		for (size_t i = 0; i < v["windows"].Size(); ++i) {
 			RectangleWallObject newrwo;
 			if (!parseRWO(v["windows"][i], newrwo)) return false;
+			newrwo.wall = &wall;
 			wall.windows.push_back(newrwo);
 		}
 	}

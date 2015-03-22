@@ -8,6 +8,7 @@
 #define _GEOMETRY_GENERATOR
 #include "RoomModel.h"
 #include "rectanglerenderer.h"
+#include <map>
 
 class GeometryGenerator {
     public:
@@ -16,9 +17,11 @@ class GeometryGenerator {
         void generate();
         void getRectangles(std::vector<Rect>& rectangles);
         void getTriangleVertices(std::vector<double>& triangles);
+		Rect getRectangleForWindow(RectangleWallObject* rwo);
     protected:
         RoomModel* model;
 
+		std::map<RectangleWallObject*, Rect> windowRectangles;
         std::vector<Rect> wallRectangles;
         std::vector<Rect> baseboardRectangles;
         std::vector<Rect> otherRectangles;
