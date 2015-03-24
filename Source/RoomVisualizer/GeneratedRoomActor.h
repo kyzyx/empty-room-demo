@@ -4,8 +4,8 @@
 
 #include "RoomModel.h"
 #include "GameFramework/Actor.h"
+#include "Engine.h"
 #include "GeneratedRoomActor.generated.h"
-
 
 UCLASS(Blueprintable)
 class ROOMVISUALIZER_API AGeneratedRoomActor : public AActor
@@ -18,6 +18,8 @@ public:
 
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+
+	virtual void PostInitializeComponents() override;
 
 	// Called every frame
 	virtual void Tick( float DeltaSeconds ) override;
@@ -47,6 +49,12 @@ public:
 
 	//UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "RoomGeometry")
 private:
+	int numlightcomponents;
 	RoomModel* roommodel;
+
+	UStaticMesh* cubemesh;
+	UMaterial* basediffusematerial;
+	UMaterial* basetexturedmaterial;
+	UMaterial* basewindowmaterial;
 
 };
