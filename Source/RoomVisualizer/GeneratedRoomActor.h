@@ -53,8 +53,10 @@ private:
 	RoomModel* roommodel;
 
 	UStaticMesh* cubemesh;
+	UStaticMesh* cylindermesh;
 	UMaterial* basediffusematerial;
 	UMaterial* basetexturedmaterial;
 	UMaterial* basewindowmaterial;
+	UMaterial* baselinelightmaterial;
 
 };

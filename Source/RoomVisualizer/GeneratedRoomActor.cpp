@@ -13,6 +13,22 @@ FString AGeneratedRoomActor::defaultloadfile = "";
 const double AGeneratedRoomActor::unitscale = 100;
 const double AGeneratedRoomActor::cubescale = 10;
 
+FQuat quaternionFromTwoVectors(FVector a, FVector b) {
+	FVector c;
+	double r = 1 + FVector::DotProduct(a, b);
+	if (r < 1e-8) {
+		r = 0;
+		c = abs(c.X) > abs(c.Z) ? FVector(-c.Y, c.X, 0) : FVector(0, -c.Z, c.Y);
+	}
+	else {
+		c = FVector::CrossProduct(a, b);
+	}
+	FQuat q(r, c.X, c.Y, c.Z);
+	q.Normalize();
+	return q;
+}
+
+
 // From https://wiki.unrealengine.com/Procedural_Materials
 void UpdateTextureRegions(UTexture2D* Texture, int32 MipIndex, uint32 NumRegions, FUpdateTextureRegion2D* Regions, uint32 SrcPitch, uint32 SrcBpp, uint8* SrcData, bool bFreeData)
 {
@@ -150,7 +166,12 @@ void generateRoomModel(RoomModel* roommodel) {
 		rw->intensity = Color(500, 500, 500);
 		roommodel->lights.push_back(rw);
 	}
-	Light* l = new Light(FVector(-300,300,250),Color(1e4,1e4,1e4));
+	// Light* l = new Light(FVector(-300,300,250),Color(1e4,1e4,1e4));
+	LineLight* l = new LineLight();
+	l->intensity = Color(1e4, 1e4, 1e4);
+	l->position = FVector(-300, 300, 250);
+	l->endpoint = FVector(-400, 400, 250);
+
 	l->cutoff = 65;
 	l->direction = FVector(0, 0, -1);
 	roommodel->lights.push_back(l);
@@ -165,16 +186,19 @@ AGeneratedRoomActor::AGeneratedRoomActor(const FObjectInitializer& ObjectInitial
 
 	numlightcomponents = 0;
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> cubemeshfinder(TEXT("/Game/FirstPerson/Meshes/UnitCube"));
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> cylindermeshfinder(TEXT("/Engine/BasicShapes/Cylinder"));
 	static ConstructorHelpers::FObjectFinder<UMaterial> basediffusematerialfinder(TEXT("/Game/FirstPerson/Meshes/DiffuseMaterialBase"));
 	//static ConstructorHelpers::FObjectFinder<UMaterial> basetexturedmaterial(TEXT("/Game/FirstPerson/Meshes/TexturedMaterialMirrorBase"));
 	static ConstructorHelpers::FObjectFinder<UMaterial> basetexturedmaterialfinder(TEXT("/Game/FirstPerson/Meshes/TexturedMaterialWrapBase"));
 	static ConstructorHelpers::FObjectFinder<UMaterial> basewindowmaterialfinder(TEXT("/Game/FirstPerson/Meshes/WindowMaterial"));
+	static ConstructorHelpers::FObjectFinder<UMaterial> baselinelightmaterialfinder(TEXT("/Game/FirstPerson/Meshes/WindowMaterial")); // FIXME
 	RootComponent = ObjectInitializer.CreateDefaultSubobject<USceneComponent>(this, "rootroomcomponent");
 	if (cubemeshfinder.Succeeded()) cubemesh = cubemeshfinder.Object;
+	if (cylindermeshfinder.Succeeded()) cylindermesh = cylindermeshfinder.Object;
 	if (basediffusematerialfinder.Succeeded()) basediffusematerial = basediffusematerialfinder.Object;
 	if (basetexturedmaterialfinder.Succeeded()) basetexturedmaterial = basetexturedmaterialfinder.Object;
 	if (basewindowmaterialfinder.Succeeded()) basewindowmaterial = basewindowmaterialfinder.Object;
-
+	if (baselinelightmaterialfinder.Succeeded()) baselinelightmaterial = baselinelightmaterialfinder.Object;
 	if (!cubemesh) return;
 	if (!this->GetWorld()) return;
 
@@ -202,33 +226,10 @@ AGeneratedRoomActor::AGeneratedRoomActor(const FObjectInitializer& ObjectInitial
 
 			a = light->direction;
 			FTransform t;
-
-			if (light->getType() == "line") {
-				LineLight* l = (LineLight*)light;
-				FVector v;
-				float d;
-				(l->position - l->endpoint).ToDirectionAndLength(v, d);
-				t.SetLocation((l->position + l->endpoint) / 2);
-				a -= FVector::DotProduct(a, v)*v;
-				component->SourceLength = d;
-			}
-			else {
-				t.SetLocation(light->position);
-			}
+			t.SetLocation(light->position);
 			if (!a.IsNearlyZero()) {
 				a.Normalize();
-				b = FVector(1, 0, 0);
-				double r = 1 + FVector::DotProduct(a, b);
-				if (r < 1e-8) {
-					r = 0;
-					c = abs(c.X) > abs(c.Z) ? FVector(-c.Y, c.X, 0) : FVector(0, -c.Z, c.Y);
-				}
-				else {
-					c = FVector::CrossProduct(a, b);
-				}
-				FQuat q(r, c.X, c.Y, c.Z);
-				q.Normalize();
-				t.SetRotation(q);
+				t.SetRotation(quaternionFromTwoVectors(a, FVector(1, 0, 0)));
 			}
 
 			component->SetWorldTransform(t);
@@ -238,6 +239,27 @@ AGeneratedRoomActor::AGeneratedRoomActor(const FObjectInitializer& ObjectInitial
 			component->bCastVxgiIndirectLighting = true;
 			component->SetLightFalloffExponent(light->dropoff);
 			component->SetOuterConeAngle(light->cutoff);
+			component->SetVisibility(true);
+		}
+		else if (light->getType() == "line") {
+			LineLight* l = (LineLight*)light;
+			UStaticMeshComponent* component = ObjectInitializer.CreateDefaultSubobject<UStaticMeshComponent>(this, FName(*(FString::Printf(TEXT("linelight%d"), i))));
+			++numlightcomponents;
+			component->bAutoRegister = true;
+			component->SetStaticMesh(cylindermesh);
+			component->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+			component->AttachTo(GetRootComponent());
+			component->RegisterComponent();
+			FVector v;
+			float d;
+			(l->position - l->endpoint).ToDirectionAndLength(v, d);
+			FTransform t;
+			t.SetLocation((l->position + l->endpoint) / 2);
+			double cylinderscale = 1*unitscale;
+			double lightdiameter = 0.01*unitscale;
+			t.SetScale3D(FVector(lightdiameter/cylinderscale, lightdiameter/cylinderscale, d/cylinderscale));
+			t.SetRotation(quaternionFromTwoVectors(v, FVector(0,0,1)));
+			component->SetWorldTransform(t);
 			component->SetVisibility(true);
 		}
 		else if (light->getType() == "window") {
@@ -360,8 +382,16 @@ void AGeneratedRoomActor::PostInitializeComponents()
 	}
 	for (int i = 0; i < roommodel->lights.size(); ++i) {
 		Light* light = roommodel->lights[i];
-		if (light->getType() == "point" || light->getType() == "line") {
-		} else if (light->getType() == "window") {
+		if (light->getType() == "point") {
+		}
+		else if (light->getType() == "line") {
+			LineLight* l = (LineLight*)light;
+			// Fix 
+			UMaterialInstanceDynamic* lightmat = UMaterialInstanceDynamic::Create(baselinelightmaterial, this);
+			UStaticMeshComponent* component = (UStaticMeshComponent*)RootComponent->GetChildComponent(i);
+			component->SetMaterial(0, lightmat);
+		}
+		else if (light->getType() == "window") {
 			RoomWindow* l = (RoomWindow*)light;
 			// TODO: Set sun direction, intensity
 			materials[&(l->rwo->material)]->SetVectorParameterValue(TEXT("DiffuseComponent"), FLinearColor(l->intensity.r, l->intensity.g, l->intensity.b));
