@@ -164,6 +164,7 @@ void generateRoomModel(RoomModel* roommodel) {
 		RoomWindow* rw = new RoomWindow();
 		rw->rwo = &(roommodel->walls[i].windows.back());
 		rw->intensity = Color(500, 500, 500);
+		rw->texture = NULL;
 		roommodel->lights.push_back(rw);
 	}
 	// Light* l = new Light(FVector(-300,300,250),Color(1e4,1e4,1e4));

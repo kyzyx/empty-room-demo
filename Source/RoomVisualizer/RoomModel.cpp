@@ -20,6 +20,7 @@ using namespace rapidjson;
 #define REQ_ARR(d,s) if (!d.HasMember(s) || !d[s].IsArray()) return false
 #define REQ_NUM(d,s) if (!d.HasMember(s) || !d[s].IsNumber()) return false
 #define REQ_SET_NUM(d,s,n) if (!d.HasMember(s) || !d[s].IsNumber()) return false; else n = d[s].GetDouble()
+#define REQ_SET_INT(d,s,n) if (!d.HasMember(s) || !d[s].IsNumber()) return false; else n = d[s].GetInt()
 #define REQ_STRING(d,s) if (!d.HasMember(s) || !d[s].IsString()) return false
 #define REQ_SET_STRING(d,s,n) if (!d.HasMember(s) || !d[s].IsString()) return false; else n = d[s].GetString()
 
@@ -27,6 +28,7 @@ using namespace rapidjson;
 #define OPT_ARR(d,s) if (d.HasMember(s) && d[s].IsArray())
 #define OPT_NUM(d,s) if (d.HasMember(s) && d[s].IsNumber())
 #define OPT_SET_NUM(d,s,n) if (d.HasMember(s) && d[s].IsNumber()) n = d[s].GetDouble()
+#define OPT_SET_INT(d,s,n) if (d.HasMember(s) && d[s].IsNumber()) n = d[s].GetInt()
 #define OPT_STRING(d,s) if (d.HasMember(s) && d[s].IsString())
 #define OPT_SET_STRING(d,s,n) if (d.HasMember(s) && d[s].IsString()) n = d[s].GetString()
 
@@ -81,6 +83,58 @@ bool parseWall(const Value& v, Wall& wall) {
 			wall.windows.push_back(newrwo);
 		}
 	}
+	return true;
+}
+
+bool parseLight(const Value& v, Light*& l, vector<Wall>& walls) {
+	string s;
+	REQ_SET_STRING(v, "type", s);
+	if (s == "window") {
+		RoomWindow* rw = new RoomWindow();
+		double w,i;
+		REQ_SET_INT(v, "wall", w);
+		REQ_SET_INT(v, "windowindex", i);
+		rw->rwo = &(walls[w].windows[i]);
+		OPT_OBJECT(v, "directionalintensity") if (!parseColor(v["directionalintensity"], rw->directionalintensity)) return false;
+		rw->texture = NULL;
+		// How to reference windows?
+		OPT_OBJECT(v, "texture") {
+			rw->texture = new Texture();
+			if (!parseTexture(v["texture"], *(rw->texture))) {
+				delete rw->texture;
+				rw->texture = NULL;
+				return false;
+			}
+		}
+		l = rw;
+	}
+	else if (s == "line") {
+		LineLight* ll = new LineLight();
+		double x, y, z;
+		REQ_SET_NUM(v, "ex", x);
+		REQ_SET_NUM(v, "ey", y);
+		REQ_SET_NUM(v, "ez", z);
+		ll->endpoint = FVector(x, y, z);
+		l = ll;
+	}
+	else {
+		l = new Light();
+	}
+
+	REQ_OBJECT(v, "intensity");
+	if (!parseColor(v["intensity"], l->intensity)) return false;
+	double x, y, z;
+	REQ_SET_NUM(v, "px", x);
+	REQ_SET_NUM(v, "py", y);
+	REQ_SET_NUM(v, "pz", z);
+	l->position = FVector(x, y, z);
+	x = y = z = 0;
+	OPT_SET_NUM(v, "dx", x);
+	OPT_SET_NUM(v, "dy", y);
+	OPT_SET_NUM(v, "dz", z);
+	l->direction = FVector(x, y, z);
+	OPT_SET_NUM(v, "dropoff", l->dropoff);
+	OPT_SET_NUM(v, "cutoff", l->cutoff);
 	return true;
 }
 
@@ -145,6 +199,48 @@ void serializeWall(const Wall& wall, Writer& writer) {
 	writer.EndObject();
 }
 
+template <typename Writer>
+void serializeLight(Light*& l, vector<Wall>& walls, Writer& writer) {
+	writer.StartObject();
+	SERIALIZE_STRING(writer, "type", l->getType().c_str());
+	if (l->getType() == "window") {
+		RoomWindow* rw = (RoomWindow*) l;
+		for (int w = 0; w < walls.size(); ++w) {
+			for (int i = 0; i < walls[w].windows.size(); ++i) {
+				if (rw->rwo == &(walls[w].windows[i])) {
+					SERIALIZE_INT(writer, "wall", w);
+					SERIALIZE_INT(writer, "windowindex", i);
+				}
+			}
+		}
+		writer.String("directionalintensity");
+		serializeColor(rw->directionalintensity, writer);
+		if (rw->texture) {
+			writer.String("texture");
+			serializeTexture(*(rw->texture), writer);
+		}
+	}
+	else if (l->getType() == "line") {
+		LineLight* ll = new LineLight();
+		SERIALIZE_DOUBLE(writer, "ex", ll->endpoint.X);
+		SERIALIZE_DOUBLE(writer, "ey", ll->endpoint.Y);
+		SERIALIZE_DOUBLE(writer, "ez", ll->endpoint.Z);
+	}
+
+	writer.String("intensity");
+	serializeColor(l->intensity, writer);
+	SERIALIZE_DOUBLE(writer, "px", l->position.X);
+	SERIALIZE_DOUBLE(writer, "py", l->position.Y);
+	SERIALIZE_DOUBLE(writer, "pz", l->position.Z);
+	SERIALIZE_DOUBLE(writer, "dx", l->direction.X);
+	SERIALIZE_DOUBLE(writer, "dy", l->direction.Y);
+	SERIALIZE_DOUBLE(writer, "dz", l->direction.Z);
+	SERIALIZE_DOUBLE(writer, "dropoff", l->dropoff);
+	SERIALIZE_DOUBLE(writer, "cutoff", l->cutoff);
+
+	writer.EndObject();
+}
+
 #include <cstdio>
 
 bool load(RoomModel& r, const string& filename) {
@@ -178,7 +274,9 @@ bool load(RoomModel& r, const string& filename) {
 	// Parse lights
 	REQ_ARR(d, "lights");
 	for (size_t i = 0; i < d["lights"].Size(); ++i) {
-		// FIXME
+		Light* l;
+		if (!parseLight(d["lights"][i], l, r.walls)) return false;
+		r.lights.push_back(l);
 	}
 	fclose(fin);
 	return true;
@@ -209,7 +307,7 @@ bool save(RoomModel& r, const string& filename) {
 	writer.String("lights");
 	writer.StartArray();
 	for (int i = 0; i < r.lights.size(); ++i) {
-		// FIXME
+		serializeLight(r.lights[i], r.walls, writer);
 	}
 	writer.EndArray();
 	writer.EndObject();
