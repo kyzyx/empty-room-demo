@@ -18,7 +18,7 @@ public class RoomVisualizer : ModuleRules
 	{
 		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "RHI", "RenderCore", "ShaderCore" });
 
-		string EnginePath = "C:/Users/edzhang/UnrealEngine/";
+        string EnginePath = "D:/Programs/Epic Games/4.7/";//"C:/Users/edzhang/UnrealEngine/";
         string PlatformString = (Target.Platform == UnrealTargetPlatform.Win64) ? "x64" : "Win32";
         PublicIncludePaths.Add(Path.Combine(EnginePath, "Engine/Source/ThirdParty/openexr/Deploy/include"));
         string OpenExrLibrariesPath = Path.Combine(EnginePath,"Engine/Source/ThirdParty/openexr/Deploy/lib/VS2013");

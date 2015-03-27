@@ -98,26 +98,7 @@ void generateRoomModel(RoomModel* roommodel) {
 	tmp->width = dim;
 	tmp->scale = 0.001;
 	tmp->texture = texture;
-	/*
-	wall.length = 6;
-	wall.normal = -1;
-	roommodel->walls.push_back(wall);
-	wall.length = 6;
-	wall.normal = -1;
-	roommodel->walls.push_back(wall);
-	wall.length = 3;
-	wall.normal = 1;
-	roommodel->walls.push_back(wall);
-	wall.length = 2;
-	wall.normal = 1;
-	roommodel->walls.push_back(wall);
-	wall.length = 3;
-	wall.normal = 1;
-	roommodel->walls.push_back(wall);
-	wall.length = 4;
-	wall.normal = 1;
-	roommodel->walls.push_back(wall);
-	*/
+
 	wall.length = 6;
 	wall.normal = -1;
 	roommodel->walls.push_back(wall);
@@ -163,10 +144,12 @@ void generateRoomModel(RoomModel* roommodel) {
 	rwo.wall = &(roommodel->walls[0]);
 	roommodel->walls[0].windows.push_back(rwo);
 
-	RoomWindow* rw = new RoomWindow();
-	rw->rwo = &(roommodel->walls[0].windows.back());
-	rw->intensity = Color(500,500,500);
-	roommodel->lights.push_back(rw);
+	for (int i = 0; i < 4; ++i) {
+		RoomWindow* rw = new RoomWindow();
+		rw->rwo = &(roommodel->walls[i].windows.back());
+		rw->intensity = Color(500, 500, 500);
+		roommodel->lights.push_back(rw);
+	}
 	Light* l = new Light(FVector(-300,300,250),Color(1e4,1e4,1e4));
 	l->cutoff = 65;
 	l->direction = FVector(0, 0, -1);
@@ -252,6 +235,7 @@ AGeneratedRoomActor::AGeneratedRoomActor(const FObjectInitializer& ObjectInitial
 			double m = std::max(light->intensity.r, std::max(light->intensity.g, light->intensity.b));
 			component->SetLightColor(FLinearColor(light->intensity.r / m, light->intensity.g / m, light->intensity.b / m));
 			component->SetIntensity(m);
+			component->bCastVxgiIndirectLighting = true;
 			component->SetLightFalloffExponent(light->dropoff);
 			component->SetOuterConeAngle(light->cutoff);
 			component->SetVisibility(true);
