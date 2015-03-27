@@ -168,11 +168,12 @@ void generateRoomModel(RoomModel* roommodel) {
 	}
 	// Light* l = new Light(FVector(-300,300,250),Color(1e4,1e4,1e4));
 	LineLight* l = new LineLight();
-	l->intensity = Color(1e4, 1e4, 1e4);
-	l->position = FVector(-300, 300, 250);
-	l->endpoint = FVector(-400, 400, 250);
+	l->intensity = Color(1e5, 1e5, 1e5);
+	l->position = FVector(-300, 300, 245);
+	l->endpoint = FVector(-400, 300, 245);
 
 	l->cutoff = 65;
+	l->dropoff = 1;
 	l->direction = FVector(0, 0, -1);
 	roommodel->lights.push_back(l);
 }
@@ -191,7 +192,7 @@ AGeneratedRoomActor::AGeneratedRoomActor(const FObjectInitializer& ObjectInitial
 	//static ConstructorHelpers::FObjectFinder<UMaterial> basetexturedmaterial(TEXT("/Game/FirstPerson/Meshes/TexturedMaterialMirrorBase"));
 	static ConstructorHelpers::FObjectFinder<UMaterial> basetexturedmaterialfinder(TEXT("/Game/FirstPerson/Meshes/TexturedMaterialWrapBase"));
 	static ConstructorHelpers::FObjectFinder<UMaterial> basewindowmaterialfinder(TEXT("/Game/FirstPerson/Meshes/WindowMaterial"));
-	static ConstructorHelpers::FObjectFinder<UMaterial> baselinelightmaterialfinder(TEXT("/Game/FirstPerson/Meshes/WindowMaterial")); // FIXME
+	static ConstructorHelpers::FObjectFinder<UMaterial> baselinelightmaterialfinder(TEXT("/Game/FirstPerson/Meshes/LineLightMaterial")); // FIXME
 	RootComponent = ObjectInitializer.CreateDefaultSubobject<USceneComponent>(this, "rootroomcomponent");
 	if (cubemeshfinder.Succeeded()) cubemesh = cubemeshfinder.Object;
 	if (cylindermeshfinder.Succeeded()) cylindermesh = cylindermeshfinder.Object;
@@ -216,7 +217,7 @@ AGeneratedRoomActor::AGeneratedRoomActor(const FObjectInitializer& ObjectInitial
 
 	for (int i = 0; i < roommodel->lights.size(); ++i) {
 		Light* light = roommodel->lights[i];
-		if (light->getType() == "point" || light->getType() == "line") {
+		if (light->getType() == "point") {
 			USpotLightComponent* component = ObjectInitializer.CreateDefaultSubobject<USpotLightComponent>(this, FName(*(FString::Printf(TEXT("spotlight%d"), i))));
 			++numlightcomponents;
 			component->bAutoRegister = true;
@@ -256,9 +257,10 @@ AGeneratedRoomActor::AGeneratedRoomActor(const FObjectInitializer& ObjectInitial
 			FTransform t;
 			t.SetLocation((l->position + l->endpoint) / 2);
 			double cylinderscale = 1*unitscale;
-			double lightdiameter = 0.01*unitscale;
+			double lightdiameter = 0.03*unitscale;
 			t.SetScale3D(FVector(lightdiameter/cylinderscale, lightdiameter/cylinderscale, d/cylinderscale));
-			t.SetRotation(quaternionFromTwoVectors(v, FVector(0,0,1)));
+			FMatrix m(l->direction, v, FVector::CrossProduct(v, l->direction), FVector(0,0,0));
+			t.SetRotation(FQuat(m));
 			component->SetWorldTransform(t);
 			component->SetVisibility(true);
 		}
@@ -326,7 +328,6 @@ void AGeneratedRoomActor::BeginPlay()
 
 }
 
-
 void AGeneratedRoomActor::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
@@ -386,9 +387,33 @@ void AGeneratedRoomActor::PostInitializeComponents()
 		}
 		else if (light->getType() == "line") {
 			LineLight* l = (LineLight*)light;
-			// Fix 
 			UMaterialInstanceDynamic* lightmat = UMaterialInstanceDynamic::Create(baselinelightmaterial, this);
 			UStaticMeshComponent* component = (UStaticMeshComponent*)RootComponent->GetChildComponent(i);
+			lightmat->SetVectorParameterValue(TEXT("DiffuseComponent"), FLinearColor(l->intensity.r, l->intensity.g, l->intensity.b));
+
+			int dim = 512;
+			float* etexture = new float[4 * dim * dim];
+			for (int i = 0; i < dim; ++i) {
+				float x = i / (float)dim;
+				float a = 2*PI*abs(0.5 - x);
+				float c = 0;
+				if (a < l->cutoff*PI / 180.) c = pow(cos(a), (float) l->dropoff);
+				for (int k = 0; k < 3; ++k)	etexture[4*i + k] = c;
+				etexture[4*i + 3] = 1;
+			}
+			for (int i = 4*dim; i < 4*dim*dim; ++i) {
+				etexture[i] = etexture[i - 4 * dim];
+			}
+
+			UTexture2D* newtex = UTexture2D::CreateTransient(dim, dim, PF_A32B32G32R32F);
+			newtex->CompressionSettings = TextureCompressionSettings::TC_VectorDisplacementmap;
+			newtex->SRGB = 0;
+			newtex->AddToRoot();
+			newtex->UpdateResource();
+			FUpdateTextureRegion2D* region = new FUpdateTextureRegion2D(0, 0, 0, 0, dim, dim);
+			UpdateTextureRegions(newtex, 0, 1, region, dim * 4 * sizeof(float), 4 * sizeof(float), (uint8*)etexture, false);
+			lightmat->SetTextureParameterValue("FalloffImage", newtex);
+
 			component->SetMaterial(0, lightmat);
 		}
 		else if (light->getType() == "window") {
