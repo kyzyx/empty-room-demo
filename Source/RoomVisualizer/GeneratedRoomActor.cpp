@@ -167,12 +167,12 @@ void generateRoomModel(RoomModel* roommodel) {
 		rw->texture = NULL;
 		roommodel->lights.push_back(rw);
 	}
-	// Light* l = new Light(FVector(-300,300,250),Color(1e4,1e4,1e4));
-	LineLight* l = new LineLight();
-	l->intensity = Color(1e5, 1e5, 1e5);
-	l->position = FVector(-300, 300, 245);
-	l->endpoint = FVector(-400, 300, 245);
+	//LineLight* l = new LineLight();
+	//l->intensity = Color(1e5, 1e5, 1e5);
+	//l->position = FVector(-300, 300, 245);
+	//l->endpoint = FVector(-400, 300, 245);
 
+	Light* l = new Light(FVector(-300,300,250),Color(1e4,1e4,1e4));
 	l->cutoff = 65;
 	l->dropoff = 1;
 	l->direction = FVector(0, 0, -1);
@@ -428,7 +428,7 @@ void AGeneratedRoomActor::PostInitializeComponents()
 	for (int i = 0; i < rectangles.size(); ++i) {
 		UStaticMeshComponent* component = (UStaticMeshComponent*) RootComponent->GetChildComponent(i+numlightcomponents);
 		if (materials.find(rectangles[i].material) != materials.end() && materials[rectangles[i].material] != NULL) {
-			if (rectangles[i].material->texture != NULL) {
+			if (rectangles[i].material->texture) {
 				double numtilings = rectangles[i].w / (rectangles[i].material->texture->scale*rectangles[i].material->texture->width);
 				materials[rectangles[i].material]->SetScalarParameterValue("UScale", numtilings);
 				numtilings = rectangles[i].h / (rectangles[i].material->texture->scale*rectangles[i].material->texture->height);
@@ -459,14 +459,100 @@ void AGeneratedRoomActor::SetRoomHeight(float newHeight) {
 	roommodel->height = newHeight;
 	Update();
 }
+void AGeneratedRoomActor::SetWindowDepth(float newDepth) {
+	for (int i = 0; i < roommodel->walls.size(); ++i) {
+		for (int j = 0; j < roommodel->walls[i].windows.size(); ++j) {
+			roommodel->walls[i].windows[j].recessed = newDepth;
+		}
+	}
+	Update();
+}
+void AGeneratedRoomActor::SetWindowBrightness(float newBrightness) {
+	for (int i = 0; i < roommodel->lights.size(); ++i) {
+		if (roommodel->lights[i]->getType() == "window") {
+			roommodel->lights[i]->intensity = Color(newBrightness, newBrightness, newBrightness);
+		}
+	}
+	Update(true);
+}
 
-void AGeneratedRoomActor::Update() {
+
+void AGeneratedRoomActor::Update(bool updatelighting) {
 	GeometryGenerator gg(roommodel);
 	gg.generate();
 	std::vector<Rect> rectangles;
 	gg.getRectangles(rectangles);
+
+	for (int i = 0; i < roommodel->lights.size(); ++i) {
+		Light* light = roommodel->lights[i];
+		if (light->getType() == "point") {
+			USpotLightComponent* component = (USpotLightComponent*) RootComponent->GetChildComponent(i);
+			FVector a, b, c;
+			a = light->direction;
+			FTransform t;
+			t.SetLocation(light->position);
+			if (!a.IsNearlyZero()) {
+				a.Normalize();
+				t.SetRotation(quaternionFromTwoVectors(a, FVector(1, 0, 0)));
+			}
+			component->SetWorldTransform(t);
+
+			if (updatelighting) {
+				double m = std::max(light->intensity.r, std::max(light->intensity.g, light->intensity.b));
+				component->SetLightColor(FLinearColor(light->intensity.r / m, light->intensity.g / m, light->intensity.b / m));
+				component->SetIntensity(m);
+				component->SetLightFalloffExponent(light->dropoff);
+				component->SetOuterConeAngle(light->cutoff);
+			}
+		}
+		else if (light->getType() == "line") {
+			LineLight* l = (LineLight*)light;
+			UStaticMeshComponent* component = (UStaticMeshComponent*) RootComponent->GetChildComponent(i);
+			++numlightcomponents;
+			FVector v;
+			float d;
+			(l->position - l->endpoint).ToDirectionAndLength(v, d);
+			FTransform t;
+			t.SetLocation((l->position + l->endpoint) / 2);
+			double cylinderscale = 1 * unitscale;
+			double lightdiameter = 0.03*unitscale;
+			t.SetScale3D(FVector(lightdiameter / cylinderscale, lightdiameter / cylinderscale, d / cylinderscale));
+			FMatrix m(l->direction, v, FVector::CrossProduct(v, l->direction), FVector(0, 0, 0));
+			t.SetRotation(FQuat(m));
+			component->SetWorldTransform(t);
+
+			if (updatelighting) {
+				UMaterialInstanceDynamic* mat = (UMaterialInstanceDynamic*)component->GetMaterial(0);
+				mat->SetVectorParameterValue(TEXT("DiffuseComponent"), FLinearColor(l->intensity.r, l->intensity.g, l->intensity.b));
+			}
+		}
+		else if (light->getType() == "window") {
+			RoomWindow* l = (RoomWindow*)light;
+			UStaticMeshComponent* component = (UStaticMeshComponent*)RootComponent->GetChildComponent(i);
+			Rect r = gg.getRectangleForWindow(l->rwo);
+			FTransform t;
+			FVector p;
+			FVector d(0, 0, 0);
+			for (int j = 0; j < 3; ++j) {
+				p[j] = r.p[j] * unitscale;
+			}
+			d[r.axisIndices().first] = (r.w)*unitscale;
+			d[r.axisIndices().second] = (r.h)*unitscale;
+			p = p + 0.5 * d;
+			d[r.axis] = r.depth*unitscale;
+			p[r.axis] -= r.normal*0.5*d[r.axis];
+			d /= cubescale;
+			t.SetScale3D(d);
+			t.SetLocation(p);
+			component->SetWorldTransform(t);
+			if (updatelighting) {
+				UMaterialInstanceDynamic* mat = (UMaterialInstanceDynamic*)component->GetMaterial(0);
+				mat->SetVectorParameterValue(TEXT("DiffuseComponent"), FLinearColor(l->intensity.r, l->intensity.g, l->intensity.b));
+			}
+		}
+	}
 	for (int i = 0; i < rectangles.size(); ++i) {
-		USceneComponent* component = RootComponent->GetChildComponent(i+numlightcomponents);
+		UStaticMeshComponent* component = (UStaticMeshComponent*)RootComponent->GetChildComponent(i+numlightcomponents);
 		FTransform t;
 		FVector p;
 		FVector d(0, 0, 0);
@@ -482,6 +568,14 @@ void AGeneratedRoomActor::Update() {
 		t.SetScale3D(d);
 		t.SetLocation(p);
 		component->SetWorldTransform(t);
+
+		if (updatelighting && rectangles[i].material->texture) {
+			UMaterialInstanceDynamic* mat = (UMaterialInstanceDynamic*)component->GetMaterial(0);
+			double numtilings = rectangles[i].w / (rectangles[i].material->texture->scale*rectangles[i].material->texture->width);
+			mat->SetScalarParameterValue("UScale", numtilings);
+			numtilings = rectangles[i].h / (rectangles[i].material->texture->scale*rectangles[i].material->texture->height);
+			mat->SetScalarParameterValue("VScale", numtilings);
+		}
 	}
 }
 

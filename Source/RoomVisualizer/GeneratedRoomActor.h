@@ -25,7 +25,7 @@ public:
 	virtual void Tick( float DeltaSeconds ) override;
 
 	UFUNCTION(BlueprintCallable, Category = "RoomGeometry")
-	void Update();
+	void Update(bool updatelighting=false);
 
 	//-----------------------------
 	// Room model editing functions
@@ -36,6 +36,10 @@ public:
 	void SetBaseboardDepth(float newBBDepth);
 	UFUNCTION(BlueprintCallable, Category = "RoomGeometry")
 	void SetRoomHeight(float newHeight);
+	UFUNCTION(BlueprintCallable, Category = "RoomGeometry")
+		void SetWindowDepth(float newDepth);
+	UFUNCTION(BlueprintCallable, Category = "RoomGeometry")
+		void SetWindowBrightness(float newBrightness);
 
 	UFUNCTION(BlueprintCallable, Category = "RoomGeometry")
 	void SaveRoomToFile(FString filename);
